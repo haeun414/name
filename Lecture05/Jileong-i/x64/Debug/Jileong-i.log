@@ -1,0 +1,4 @@
+﻿  main.c
+C:\Users\박하은\Desktop\유한대 2학년\프로그래밍패턴\Jileong-i\main.c(234,8): warning C4013: 'time'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+C:\Users\박하은\Desktop\유한대 2학년\프로그래밍패턴\Jileong-i\main.c(257,2): warning C4013: 'ClearBuffer'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+  Jileong-i.vcxproj -> C:\Users\박하은\Desktop\유한대 2학년\프로그래밍패턴\Jileong-i\x64\Debug\Jileong-i.exe
