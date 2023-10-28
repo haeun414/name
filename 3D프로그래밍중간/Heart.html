@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  canvas {
+    border: 1px solid #ccc;
+     /* 배경색 변경 */
+    top: 0;
+    border-radius: 5px; /* 캔버스 모서리를 둥글게 만듭니다. */
+  }
+  #inspector {
+    position: absolute;
+    left: 810px;
+    top: 0;
+    background-color: #f5f5f5; /* 배경색 변경 */
+    padding: 20px; /* 내부 간격 추가 */
+    border: 1px solid #ccc; /* 테두리 추가 */
+    border-radius: 5px;
+  }
+  .button {
+    background-color: #f9fec6; /* 배경색을 바꾸기 */
+    color: #000000; /* 텍스트 색상을 바꾸기 */
+    border: none;
+    padding: 10px 20px; /* 패딩 값을 더 크게 만들어 크기를 조절 */
+    font-size: 16px; /* 글꼴 크기를 조절 */
+    margin-bottom: 20px; /* 버튼 사이의 간격을 조절 */
+    cursor: pointer;
+    border-radius: 5px; /* 버튼 모서리를 둥글게 만들기 */
+  }
+  .button:hover {
+    background-color: #ffff37; /* 마우스를 올렸을 때 배경색 변경 */
+  }
+  input[type="number"] {
+    padding: 5px;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    border-radius: 5px;
+  }
+  #drawHeart {
+    margin-top: 10px; /* "Draw Heart" 버튼 위쪽 간격 조절 */
+  }
+  /* 라벨 스타일 추가 */
+  label {
+    margin-right: 5px;
+  }
+</style>
+</head>
+<body>
+<canvas id="myCanvas" width="800" height="600"></canvas>
+<div id="inspector">
+  <div>Position</div>
+  <label for="positionX">X:</label>
+  <input type="number" id="positionX" value="400">
+  <label for="positionY">Y:</label>
+  <input type="number" id="positionY" value="300">
+  <label for="positionZ">Z:</label>
+  <input type="number" id="positionZ" value="1">
+  <div>Rotation</div>
+  <label for="rotationX">X:</label>
+  <input type="number" id="rotationX" value="0">
+  <label for="rotationY">Y:</label>
+  <input type="number" id="rotationY" value="0">
+  <label for="rotationZ">Z:</label>
+  <input type="number" id="rotationZ" value="0">
+  <div>Scale</div>
+  <label for="scaleX">X:</label>
+  <input type="number" id="scaleX" value="100">
+  <label for="scaleY">Y:</label>
+  <input type="number" id="scaleY" value="-100"> <!-- 여기를 음수로 변경 -->
+  <label for="scaleZ">Z:</label>
+  <input type="number" id="scaleZ" value="1">
+  <div></div>
+  <div></div>
+  <button id="drawHeart" class="button">Draw Heart</button>
+  <div></div>
+  <button id="undo" class="button">Undo</button>
+  <div></div>
+  <button id="redo" class="button">Redo</button>
+</div>
+
+<script>
+var canvas = document.getElementById("myCanvas");
+var ctx = canvas.getContext("2d");
+var undoButton = document.getElementById("undo");
+var undoStack = [];
+var redoButton = document.getElementById("redo");
+var redoStack = [];
+
+undoButton.addEventListener("click", function() {
+  if (undoStack.length > 0) {
+    // 이전 상태를 스택에서 팝
+    var previousState = undoStack.pop();
+
+    // 포지션을 고정된 값으로 설정
+    heart.x = 400;
+    heart.y = 300;
+
+    // 스케일을 고정된 값으로 설정
+    heart.sizeX = 100;
+    heart.sizeY = -100;
+
+    // 회전 값을 초기값인 0으로 설정
+    heart.rotationX = 0;
+    heart.rotationY = 0;
+    heart.rotationZ = 0;
+
+    // 입력 필드에 값을 업데이트
+    positionXInput.value = heart.x;
+    positionYInput.value = heart.y;
+    positionZInput.value = heart.sizeZ;
+    rotationXInput.value = heart.rotationX;
+    rotationYInput.value = heart.rotationY;
+    rotationZInput.value = heart.rotationZ;
+    scaleXInput.value = heart.sizeX;
+    scaleYInput.value = heart.sizeY;
+    scaleZInput.value = heart.sizeZ;
+
+    // 다시 그리기
+    draw();
+  }
+});
+
+redoButton.addEventListener("click", function() {
+  if (redoStack.length > 0) {
+    // redo 스택에서 상태를 팝하고 현재 상태를 undo 스택에 푸시합니다.
+    undoStack.push(Object.assign({}, heart));
+
+    // 다음 상태를 실행
+    var redoState = redoStack.pop();
+
+    // 상태 복원
+    Object.assign(heart, redoState);
+
+    // 입력 필드 업데이트
+    positionXInput.value = heart.x;
+    positionYInput.value = heart.y;
+    positionZInput.value = heart.sizeZ;
+    rotationXInput.value = heart.rotationX;
+    rotationYInput.value = heart.rotationY;
+    rotationZInput.value = heart.rotationZ;
+    scaleXInput.value = heart.sizeX;
+    scaleYInput.value = heart.sizeY;
+    scaleZInput.value = heart.sizeZ;
+
+    // 다시 그리기
+    draw();
+  }
+  // 리두 버튼 상태 업데이트
+  redoButton.disabled = redoStack.length === 0;
+});
+
+function pushStateToUndoStack() {
+  // 현재 상태를 복제하여 스택에 푸시
+  undoStack.push(Object.assign({}, heart));
+}
+
+
+var heart = {
+  x: 400,
+  y: 300,
+  sizeX: 100,
+  sizeY: -100, // 여기를 음수로 변경
+  sizeZ: 1,
+  rotationX: 0,
+  rotationY: 0,
+  rotationZ: 0,
+  isDragging: false,
+  lastMouseX: null,
+  lastMouseY: null,
+  resizeHandleRadius: 5,
+  resizeHandleDiameter: 2 * 5,
+  clickedResizeHandle: "",
+  blueCircleX: -50,
+  blueCircleY: 0
+};
+
+var isScaling = false;
+var isMousePressed = false;
+var canScale = true; // 파란 원을 클릭하여 크기를 조절할 수 있는 플래그
+var isDragging = false; // 파란 원 드래그 플래그
+
+var positionXInput = document.getElementById("positionX");
+var positionYInput = document.getElementById("positionY");
+var positionZInput = document.getElementById("positionZ");
+var rotationXInput = document.getElementById("rotationX");
+var rotationYInput = document.getElementById("rotationY");
+var rotationZInput = document.getElementById("rotationZ");
+var scaleXInput = document.getElementById("scaleX");
+var scaleYInput = document.getElementById("scaleY");
+var scaleZInput = document.getElementById("scaleZ");
+var drawHeartButton = document.getElementById("drawHeart");
+
+positionXInput.addEventListener("change", function() {
+  heart.x = parseInt(positionXInput.value);
+  draw();
+});
+
+positionYInput.addEventListener("change", function() {
+  heart.y = parseInt(positionYInput.value);
+  draw();
+});
+
+positionZInput.addEventListener("change", function() {
+  heart.sizeZ = parseFloat(positionZInput.value);
+  draw();
+});
+
+rotationXInput.addEventListener("change", function() {
+  heart.rotationX = parseFloat(rotationXInput.value);
+  draw();
+});
+
+rotationYInput.addEventListener("change", function() {
+  heart.rotationY = parseFloat(rotationYInput.value);
+  draw();
+});
+
+rotationZInput.addEventListener("change", function() {
+  heart.rotationZ = parseFloat(rotationZInput.value);
+  draw();
+});
+
+scaleXInput.addEventListener("change", function() {
+  heart.sizeX = parseFloat(scaleXInput.value);
+  draw();
+});
+
+scaleYInput.addEventListener("change", function() {
+  heart.sizeY = parseFloat(scaleYInput.value);
+  draw();
+});
+
+scaleZInput.addEventListener("change", function() {
+  heart.sizeZ = parseFloat(scaleZInput.value);
+  draw();
+});
+
+drawHeartButton.addEventListener("click", function() {
+  positionXInput.value = heart.x;
+  positionYInput.value = heart.y;
+  positionZInput.value = heart.sizeZ;
+  rotationXInput.value = heart.rotationX;
+  rotationYInput.value = heart.rotationY;
+  rotationZInput.value = heart.rotationZ;
+  scaleXInput.value = heart.sizeX;
+  scaleYInput.value = heart.sizeY;
+  scaleZInput.value = heart.sizeZ;
+  draw();
+});
+
+canvas.addEventListener("mousedown", function(event) {
+  var mouseX = event.clientX - canvas.getBoundingClientRect().left;
+  var mouseY = event.clientY - canvas.getBoundingClientRect().top;
+  pushStateToUndoStack();
+
+  // 파란 원 클릭 체크
+  var blueCircleX = heart.x + heart.blueCircleX;
+  var blueCircleY = heart.y + heart.blueCircleY;
+  var dx = mouseX - blueCircleX;
+  var dy = mouseY - blueCircleY;
+  var distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance <= heart.resizeHandleRadius) {
+    isScaling = true;
+    canScale = true;
+    isMousePressed = true;
+  } else if (isPointInHeart(mouseX, mouseY)) {
+    isDragging = true;
+    canScale = false; // 하트를 드래그할 때 크기 조절을 중지
+    heart.isDragging = true;
+    heart.dragOffsetX = mouseX - heart.x;
+    heart.dragOffsetY = mouseY - heart.y;
+    isMousePressed = true;
+  }
+});
+
+// 마우스 이벤트 핸들러 중의 다음 코드를 수정
+canvas.addEventListener("mousemove", function(event) {
+  if (isMousePressed) {
+    var mouseX = event.clientX - canvas.getBoundingClientRect().left;
+    var mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+    if (isDragging) {
+      heart.x = mouseX - heart.dragOffsetX;
+      heart.y = mouseY - heart.dragOffsetY;
+    }
+
+    if (isScaling && canScale) {
+      var distanceX = mouseX - (heart.x + heart.blueCircleX);
+      var distanceY = mouseY - (heart.y + heart.blueCircleY);
+
+      heart.sizeX = Math.abs(distanceX);
+      heart.sizeY = Math.abs(distanceY);
+    }
+
+    // 실시간으로 값 업데이트
+    positionXInput.value = heart.x;
+    positionYInput.value = heart.y;
+    scaleXInput.value = heart.sizeX;
+    scaleYInput.value = heart.sizeY;
+
+    // 캔버스를 클리어하고 거울 모드로 그림
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(heart.x, heart.y);
+    ctx.rotate(heart.rotationX * (Math.PI / 180));
+    ctx.rotate(heart.rotationY * (Math.PI / 180));
+    ctx.rotate(heart.rotationZ * (Math.PI / 180));
+    ctx.scale(heart.sizeX / 100, -heart.sizeY / 100); // 높이에 마이너스를 추가해 거울 모드로 만듭니다.
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(50, 50, 100, 0, 0, -100);
+    ctx.bezierCurveTo(-100, 0, -50, 50, 0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "blue";
+    ctx.beginPath();
+    ctx.arc(
+      heart.blueCircleX,
+      heart.blueCircleY,
+      heart.resizeHandleRadius,
+      0,
+      2 * Math.PI
+    );
+    ctx.fill();
+    ctx.restore();
+  }
+});
+
+
+
+canvas.addEventListener("mouseup", function() {
+  heart.isDragging = false;
+  isDragging = false;
+  isScaling = false;
+  isMousePressed = false;
+});
+
+canvas.addEventListener("click", function(event) {
+  var mouseX = event.clientX - canvas.getBoundingClientRect().left;
+  var mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+  // 파란 원 클릭 체크
+  var blueCircleX = heart.x + heart.blueCircleX;
+  var blueCircleY = heart.y + heart.blueCircleY;
+  var dx = mouseX - blueCircleX;
+  var dy = mouseY - blueCircleY;
+  var distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance <= heart.resizeHandleRadius) {
+    isScaling = true;
+
+    // 파란 원의 위치를 랜덤한 값으로 변경
+    heart.blueCircleX = (Math.random() - 0.5) * 200;
+    heart.blueCircleY = (Math.random() - 0.5) * 200;
+
+    // 클릭할 때마다 회전 값을 랜덤하게 변경
+    heart.rotationX = Math.random() * 360;
+    heart.rotationY = Math.random() * 360;
+    heart.rotationZ = Math.random() * 360;
+    draw();
+  }
+});
+
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(heart.x, heart.y);
+  ctx.rotate(heart.rotationX * (Math.PI / 180));
+  ctx.rotate(heart.rotationY * (Math.PI / 180));
+  ctx.rotate(heart.rotationZ * (Math.PI / 180));
+  ctx.scale(heart.sizeX / 100, heart.sizeY / 100);
+
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(50, 50, 100, 0, 0, -100);
+  ctx.bezierCurveTo(-100, 0, -50, 50, 0, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // 파란 원 그리기 (고정 위치 사용)
+  ctx.fillStyle = "blue";
+  ctx.beginPath();
+  ctx.arc(
+    heart.blueCircleX,
+    heart.blueCircleY,
+    heart.resizeHandleRadius,
+    0,
+    2 * Math.PI
+  );
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function isPointInHeart(x, y) {
+  var dx = x - heart.x;
+  var dy = y - heart.y;
+  return (
+    Math.pow(dx, 2) / Math.pow(heart.sizeX / 2, 2) +
+    Math.pow(dy, 2) / Math.pow(heart.sizeY / 4, 2) <= 1
+  );
+}
+
+draw();
+</script>
+</body>
+</html>
