@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        #gameContainer {
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #fff;
+            border: 2px solid #000;
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        canvas {
+            border: 2px solid #000;
+            display: block;
+            margin: 10px auto;
+        }
+        #gameInfo {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        #gameOver {
+            display: none;
+            background-color: rgba(255, 255, 255, 0.7);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+        #gameOverMessage {
+            font-size: 24px;
+        }
+        #gameOverStats {
+            font-size: 18px;
+        }
+        #restartButton {
+            padding: 10px 20px;
+            background-color: rgb(243, 255, 136);
+            color: #000000;
+            font-size: 18px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>뱀 게임</h1>
+    <div id="gameContainer">
+        <canvas id="My_Canvas" width="800" height="500"></canvas>
+    </div>
+    <div id = "gameInfo">
+        <span id="time">시간: 0s</span>
+        <span id="snakeLength">뱀 길이: 3</span>
+    </div>
+    <div id="gameOver">
+        <div id="gameOverMessage">게임 오버</div>
+        <div id="gameOverStats">
+            <span id="gameOverTime">시간: 0s</span>
+            <span id="gameOverLength">뱀 길이: 3</span>
+        </div>
+        <button id="restartButton">다시 시작</button>
+    </div>
+    <script>
+        // 게임 오버 여부
+        var gameOver = false;
+
+        // 게임 오버 창 및 관련 요소 가져오기
+        const gameOverDiv = document.getElementById('gameOver');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+        const gameOverTime = document.getElementById('gameOverTime');
+        const gameOverLength = document.getElementById('gameOverLength');
+        const restartButton = document.getElementById('restartButton');
+        
+        // 게임 오버 및 정보 창 스타일을 업데이트하여 게임 정보가 게임 제목 아래로 이동
+        const gameInfo = document.getElementById('gameInfo');
+        const gameContainer = document.getElementById('gameContainer');
+        gameContainer.appendChild(gameInfo);
+
+        // 캔버스 엘리먼트와 그림 그리기를 위한 2D 컨텍스트
+        const canvas = document.getElementById('My_Canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 마우스 커서 위치 초기화
+        var mouseX = 0;
+        var mouseY = 0;
+
+        // 뱀 머리 초기 위치 및 설정
+        var playerX = 100;
+        var playerY = 100;
+        var playerRadius = 10;
+        var playerSpeed = 0.5;
+        var playerLength = 3; // 초기 몸통 갯수
+
+        // 뱀의 몸통 부분을 저장할 배열
+        var bodyParts = [];
+        
+        // 가속 여부 및 가속량 설정
+        var isAccelerating = false;
+        var accelerationAmount = 3;
+
+        // 몸통 간의 간격 조절 (springEffect를 늘릴수록 간격이 커집니다)
+        var springEffect = 60; 
+
+        // 오브젝트 (사과) 생성
+        var objects = []; // 여러 개의 사과를 저장할 배열
+
+        function drawApple(object) {
+            ctx.beginPath();
+            ctx.arc(object.x, object.y, object.radius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.closePath();
+
+            // 사과 꼭지 그리기
+            ctx.beginPath();
+            ctx.moveTo(object.x, object.y - object.radius); // 꼭지의 시작점 설정
+            ctx.lineTo(object.x, object.y - object.radius - 5); // 꼭지의 끝점 설정
+            ctx.strokeStyle = 'dark brown'; // 꼭지의 선 색상 설정
+            ctx.lineWidth = 1.5; // 꼭지의 선 두께 설정
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        // 사과 생성 함수
+        function createApple() {
+            const newApple = {
+                x: Math.random() * (canvas.width - playerRadius * 2) + playerRadius,
+                y: Math.random() * (canvas.height - playerRadius * 2) + playerRadius,
+                radius: 10,
+                isEaten: false
+            };
+            return newApple;
+        }
+
+        // 초기에 몇 개의 사과를 생성할지 설정
+        for (var i = 0; i < 3; i++) {
+            objects.push(createApple());
+        }
+
+        // 클릭하는 동안 가속을 나타내는 부분
+        canvas.addEventListener('mousedown', function() {
+            isAccelerating = true;
+        });
+
+        // 마우스 클릭을 해제하면 가속을 멈추는 부분
+        canvas.addEventListener('mouseup', function() {
+            isAccelerating = false;
+        });
+
+        // 게임 루프 설정
+        setInterval(gameLoop, 1000 / 60);
+
+        // 마우스 움직임 이벤트 처리
+        document.addEventListener('mousemove', updateMouseCursor);
+
+        function updateMouseCursor(event) {
+        const rect = canvas.getBoundingClientRect(); // 캔버스의 위치 및 크기 정보를 가져옴
+        mouseX = event.clientX - rect.left; // 마우스 이벤트 위치를 캔버스 좌표로 변환
+        mouseY = event.clientY - rect.top;
+        }
+
+        //기본 이동 간격 조절
+        var dirX = 0;
+        var dirY = 0;
+        var speed = 3;
+
+        // 머리의 방향과 속도 계산
+        function CalculateDirection() {
+            dirX = mouseX - playerX;
+            dirY = mouseY - playerY;
+
+            scalar = Math.sqrt((dirX * dirX) + (dirY * dirY));
+
+            // 일정 거리 이상일 때만 움직이도록 수정
+            if (scalar > 5) {
+                dirX /= scalar;
+                dirY /= scalar;
+            } else {
+                dirX = 0;
+                dirY = 0;
+            }
+
+            if (isAccelerating) {
+                playerX += dirX * (speed * accelerationAmount);
+                playerY += dirY * (speed * accelerationAmount);
+                springEffect = playerRadius * 0.33;
+            } else {
+                playerX += dirX * speed;
+                playerY += dirY * speed;
+                springEffect = 0;
+            }
+
+            // 사과 먹기
+            for (var i = 0; i < objects.length; i++) {
+                var object = objects[i];
+                if (!object.isEaten) {
+                    var dx = playerX - object.x;
+                    var dy = playerY - object.y;
+                    var distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < playerRadius + object.radius) {
+                        object.isEaten = true;
+                        playerLength++; // 몸통 갯수 증가
+                        // 새로운 사과 생성
+                        objects[i] = createApple();
+                    }
+                }
+            }
+        }
+
+        // 화면 그리기
+        function draw() {
+            
+            if (gameOver) {
+                return; // 게임 오버 상태에서는 그리기 중지
+            }
+
+            // Canvas 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            CalculateDirection();
+
+           // 원 그리기 (머리)
+           ctx.beginPath();
+            ctx.arc(playerX, playerY, playerRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'green';
+            ctx.fill();
+            ctx.strokeStyle = '#000'; // 테두리 색상 설정
+            ctx.lineWidth = 1; // 테두리 두께 설정
+            ctx.stroke();
+
+            // 머리에 눈 그리기
+            ctx.beginPath();
+            ctx.arc(playerX - playerRadius / 2, playerY - playerRadius / 2, playerRadius / 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'black'; // 눈의 색상
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(playerX + playerRadius / 2, playerY - playerRadius / 2, playerRadius / 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'black'; // 눈의 색상
+            ctx.fill();
+
+            // 몸통 그리기
+            // 몸통 간의 간격 조절
+            var bodySpacing = 60; // 몸통 간의 간격을 조절하려면 이 값을 조정합니다.
+            
+            for (var i = 0; i < bodyParts.length; i++) {
+                var partX = bodyParts[i].x;
+                var partY = bodyParts[i].y;
+
+                ctx.beginPath();
+                ctx.arc(partX, partY, playerRadius, 0, 2 * Math.PI);
+                ctx.fillStyle = 'green';
+                ctx.fill();
+                ctx.strokeStyle = '#000'; // 테두리 색상 설정
+                ctx.lineWidth = 1; // 테두리 두께 설정
+                ctx.stroke();
+
+                // 몸통 간의 간격 설정
+                if (i > 0) {
+                    var prevPartX = bodyParts[i - 1].x;
+                    var prevPartY = bodyParts[i - 1].y;
+                    var dx = partX - prevPartX;
+                    var dy = partY - prevPartY;
+                    var distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bodySpacing) {
+                        continue; // 간격이 충분하지 않으면 건너뜁니다.
+                    }
+                }
+            }
+
+
+            // 사과 그리기
+            for (var i = 0; i < objects.length; i++) {
+                var object = objects[i];
+                if (!object.isEaten) {
+                    drawApple(object);
+                }
+            }
+
+            // 몸통 추가
+            bodyParts.push({ x: playerX, y: playerY });
+
+            // 몸통 갯수 관리 (최대 3개까지 유지)
+            if (bodyParts.length > playerLength) {
+                bodyParts.shift();
+            }
+
+            // 게임 오버 조건 확인
+            if (checkGameOverCondition()) {
+                endGame();
+            }
+        }
+
+        // 게임 오버 조건 확인
+        function checkGameOverCondition() {
+            //캔버스 경계에 닿으면 게임 오버
+            if (playerX - playerRadius < 0 || playerX + playerRadius > canvas.width || playerY - playerRadius < 0 || playerY + playerRadius > canvas.height) {
+                return true;
+            }
+            return false;
+        }
+
+        // 게임 종료
+        function endGame() {
+            // 게임 오버 메시지 및 통계 업데이트
+            gameOver = true;
+            gameOverDiv.style.display = 'flex';
+            gameOverMessage.textContent = '게임 오버';
+            gameOverTime.textContent = `시간: ${elapsedTimeInSeconds}s`;
+            gameOverLength.textContent = `뱀 길이: ${playerLength}`;
+
+            // 다시 시작 버튼 이벤트 리스너 추가
+            restartButton.addEventListener('click', () => {
+                restartGame();
+            });
+        }
+
+        // 게임 다시 시작
+        function restartGame() {
+            gameOver = false;
+            gameOverDiv.style.display = 'none';
+            playerX = 100;
+            playerY = 100;
+            playerLength = 3;
+            bodyParts = [];
+            objects = [];
+            for (var i = 0; i < 3; i++) {
+                objects.push(createApple());
+            }
+            startTime = Date.now(); // 게임 시작 시간 초기화
+        }
+
+        // 게임 시작 시간 기록
+        let startTime = Date.now();
+        let elapsedTimeInSeconds = 0;
+
+        // 게임 루프 함수
+        function gameLoop(){
+            if (!gameOver) {
+                // 게임 루프 내부에서 현재 시간을 계산
+                const currentTime = Date.now();
+                elapsedTimeInSeconds = Math.floor((currentTime - startTime) / 1000);
+
+                // 시간 업데이트
+                const timeElement = document.getElementById('time');
+                timeElement.textContent = `시간: ${elapsedTimeInSeconds}s`;
+
+                // 뱀 길이 업데이트
+                const snakeLengthElement = document.getElementById('snakeLength');
+                snakeLengthElement.textContent = `뱀 길이: ${playerLength}`;
+
+                draw(); // 게임 화면 그리기
+            }
+        }
+    </script>
+</body>
+</html>
