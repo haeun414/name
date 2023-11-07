@@ -24,6 +24,9 @@
             display: inline-block;
         }
         canvas {
+            background-image: url('background.png');
+            background-size: cover; /* 이미지를 화면에 맞게 조정 */
+            background-repeat: no-repeat; /* 이미지 반복 제거 */
             border: 2px solid #000;
             display: block;
             margin: 10px auto;
@@ -126,6 +129,7 @@
             ctx.beginPath();
             ctx.arc(object.x, object.y, object.radius, 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
+            ctx.stroke();
             ctx.fill();
             ctx.closePath();
 
@@ -141,18 +145,143 @@
 
         // 사과 생성 함수
         function createApple() {
-            const newApple = {
-                x: Math.random() * (canvas.width - playerRadius * 2) + playerRadius,
-                y: Math.random() * (canvas.height - playerRadius * 2) + playerRadius,
-                radius: 10,
-                isEaten: false
-            };
+            let newApple;
+            let isOverlap;
+
+            do {
+                isOverlap = false;
+                newApple = {
+                    x: Math.random() * (canvas.width - playerRadius * 2) + playerRadius,
+                    y: Math.random() * (canvas.height - playerRadius * 2) + playerRadius,
+                    radius: 10,
+                    isEaten: false
+                };
+
+                // 새로운 사과와 기존 사과들 비교하여 겹치는지 확인
+                for (let i = 0; i < objects.length; i++) {
+                    if (isColliding(newApple, objects[i])) {
+                        isOverlap = true;
+                        break;
+                    }
+                }
+            } while (isOverlap); // 겹치는 경우 다시 생성
+
             return newApple;
+        }
+
+        // 두 원이 충돌하는지 확인
+        function isColliding(circle1, circle2) {
+            const dx = circle1.x - circle2.x;
+            const dy = circle1.y - circle2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < circle1.radius + circle2.radius;
         }
 
         // 초기에 몇 개의 사과를 생성할지 설정
         for (var i = 0; i < 3; i++) {
             objects.push(createApple());
+        }
+
+         // 장애물 크기 및 이동 속도 설정
+        var obstacleSize = 20;
+        var obstacleSpeed = 2;
+        var obstacleSpawnRate = 50; // 낮을수록 장애물이 자주 생성
+
+        // 장애물 배열 초기화
+        var obstacles = [];
+
+        // 장애물 그리기 함수
+        function drawObstacle(x, y, type, angle) {
+            ctx.beginPath();
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            if (type === 0) {
+                // 삼각형 그리기
+                ctx.moveTo(-obstacleSize / 2, -obstacleSize / 2);
+                ctx.lineTo(obstacleSize / 2, -obstacleSize / 2);
+                ctx.lineTo(0, obstacleSize / 2);
+                ctx.fillStyle = 'yellow';
+            } else if (type === 1) {
+                // 사각형 그리기
+                ctx.rect(-obstacleSize / 2, -obstacleSize / 2, obstacleSize, obstacleSize);
+                ctx.fillStyle = 'skyblue';
+            } else {
+                // 원 그리기
+                ctx.arc(0, 0, obstacleSize / 2, 0, 2 * Math.PI);
+                ctx.fillStyle = 'purple';
+            }
+
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 장애물 생성 함수
+        function createObstacle() {
+        let newObstacle;
+        let isOverlap;
+
+        do {
+            isOverlap = false;
+
+            // 장애물의 초기 위치를 무작위로 설정
+            newObstacle = {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                type: Math.floor(Math.random() * 3), // 0: 삼각형, 1: 사각형, 2: 원
+                angle: Math.random() * Math.PI * 2
+            };
+
+            // 새로운 장애물과 기존 장애물들 비교하여 겹치는지 확인
+            for (let i = 0; i < obstacles.length; i++) {
+                if (isObstacleColliding(newObstacle, obstacles[i])) {
+                    isOverlap = true;
+                    break;
+                }
+            }
+        } while (isOverlap); // 겹치는 경우 다시 생성
+
+        return newObstacle;
+    }
+
+        // 두 장애물이 충돌하는지 확인
+        function isObstacleColliding(obstacle1, obstacle2) {
+            const dx = obstacle1.x - obstacle2.x;
+            const dy = obstacle1.y - obstacle2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < obstacleSize; // 장애물 크기를 반지름으로 사용하여 충돌 여부 확인
+        }
+
+        // 장애물 배열 초기화
+        var obstacles = [];
+
+        // 장애물 생성 함수를 사용하여 장애물 배열 초기화
+        for (var i = 0; i < 5; i++) {
+            obstacles.push(createObstacle());
+        }
+
+
+        // 게임 루프 함수에서 장애물 생성 및 이동 부분 수정
+        // 장애물 생성 및 이동
+        if (Math.random() < 1 / obstacleSpawnRate) {
+            obstacles.push(createObstacle());
+        }
+
+        // 장애물 이동 및 그리기
+        for (var i = 0; i < obstacles.length; i++) {
+            var obstacle = obstacles[i];
+            obstacle.x -= obstacleSpeed;
+
+            ctx.save();
+
+            // 장애물 위치로 이동 및 회전
+            ctx.translate(obstacle.x, obstacle.y);
+            ctx.rotate(obstacle.angle);
+
+            drawObstacle(0, 0, obstacle.type, 0);
+
+            ctx.restore(); // 그리기 상태 복원
         }
 
         // 클릭하는 동안 가속을 나타내는 부분
@@ -288,7 +417,6 @@
                 }
             }
 
-
             // 사과 그리기
             for (var i = 0; i < objects.length; i++) {
                 var object = objects[i];
@@ -321,19 +449,20 @@
         }
 
         // 게임 종료
+        // 게임 종료
         function endGame() {
             // 게임 오버 메시지 및 통계 업데이트
             gameOver = true;
             gameOverDiv.style.display = 'flex';
             gameOverMessage.textContent = '게임 오버';
-            gameOverTime.textContent = `시간: ${elapsedTimeInSeconds}s`;
-            gameOverLength.textContent = `뱀 길이: ${playerLength}`;
+            gameOverLength.textContent = `점수: ${playerLength}`;
 
             // 다시 시작 버튼 이벤트 리스너 추가
             restartButton.addEventListener('click', () => {
                 restartGame();
             });
         }
+
 
         // 게임 다시 시작
         function restartGame() {
@@ -344,18 +473,20 @@
             playerLength = 3;
             bodyParts = [];
             objects = [];
+            obstacles = []; // 장애물 배열 초기화
             for (var i = 0; i < 3; i++) {
                 objects.push(createApple());
             }
             startTime = Date.now(); // 게임 시작 시간 초기화
         }
 
+
         // 게임 시작 시간 기록
         let startTime = Date.now();
         let elapsedTimeInSeconds = 0;
 
         // 게임 루프 함수
-        function gameLoop(){
+        function gameLoop() {
             if (!gameOver) {
                 // 게임 루프 내부에서 현재 시간을 계산
                 const currentTime = Date.now();
@@ -370,6 +501,38 @@
                 snakeLengthElement.textContent = `뱀 길이: ${playerLength}`;
 
                 draw(); // 게임 화면 그리기
+
+                // 장애물 생성 및 이동
+                if (Math.random() < 1 / obstacleSpawnRate) {
+                    obstacles.push(createObstacle());
+                }
+
+                // 장애물 이동 및 그리기
+                for (var i = 0; i < obstacles.length; i++) {
+                    var obstacle = obstacles[i];
+                    obstacle.x -= obstacleSpeed;
+                    obstacle.angle += 0.02; // 장애물의 회전 속도 조절
+
+                    ctx.save();
+
+                    // 장애물 위치로 이동 및 회전
+                    ctx.translate(obstacle.x, obstacle.y);
+                    ctx.rotate(obstacle.angle);
+
+                    drawObstacle(0, 0, obstacle.type, 0);
+
+                    ctx.restore(); // 그리기 상태 복원
+
+                   // 장애물과 뱀 머리 간의 충돌 확인
+                    var dx = obstacle.x - playerX;
+                    var dy = obstacle.y - playerY;
+                    var distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < playerRadius + obstacleSize / 2) {
+                        // 장애물에 닿으면 게임 종료
+                        endGame();
+                    }
+                }
             }
         }
     </script>
