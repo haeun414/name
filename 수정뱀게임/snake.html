@@ -24,7 +24,7 @@
             display: inline-block;
         }
         canvas {
-            background-image: url('background.png');
+            background-image: url('https://i.ibb.co/GJLL28q/background.png');
             background-size: cover; /* 이미지를 화면에 맞게 조정 */
             background-repeat: no-repeat; /* 이미지 반복 제거 */
             border: 2px solid #000;
@@ -389,7 +389,7 @@
 
             // 몸통 그리기
             // 몸통 간의 간격 조절
-            var bodySpacing = 60; // 몸통 간의 간격을 조절하려면 이 값을 조정합니다.
+            var bodySpacing = 60; // 몸통 간의 간격을 조절하려면 이 값을 조정
             
             for (var i = 0; i < bodyParts.length; i++) {
                 var partX = bodyParts[i].x;
@@ -412,7 +412,7 @@
                     var distance = Math.sqrt(dx * dx + dy * dy);
 
                     if (distance < bodySpacing) {
-                        continue; // 간격이 충분하지 않으면 건너뜁니다.
+                        continue; // 간격이 충분하지 않으면 건너뜀
                     }
                 }
             }
@@ -455,6 +455,7 @@
             gameOver = true;
             gameOverDiv.style.display = 'flex';
             gameOverMessage.textContent = '게임 오버';
+            gameOverTime.textContent = `시간: ${elapsedTimeInSeconds}s`;
             gameOverLength.textContent = `점수: ${playerLength}`;
 
             // 다시 시작 버튼 이벤트 리스너 추가
